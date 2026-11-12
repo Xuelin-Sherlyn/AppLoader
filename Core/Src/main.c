@@ -57,9 +57,9 @@
 /* Private variables ---------------------------------------------------------*/
 
 /* USER CODE BEGIN PV */
-uint32_t QSPI_Status = 0;
+uint8_t QSPI_Status = 0;
 uint32_t Device_ID;	    // Flash ID
-const char ver[] = "0.1.0.10";
+const char ver[] = "0.1.0.14";
 // uint8_t ReceiveData[RX_DATA_SIZE] = {0};
 /* USER CODE END PV */
 
@@ -77,13 +77,13 @@ void JumpToApplication(void);
 void Print_LOGO(void)
 {
   printf("\r\n\033[36m");
-  printf(" __  __          _     _            _                _                    _           \n");
-  printf(" \\ \\/ /   _  ___| |   (_)_ __      / \\   _ __  _ __ | |    ___   __ _  __| | ___ _ __ \n");
-  printf("  \\  / | | |/ _ \\ |   | | '_ \\    / _ \\ | '_ \\| '_ \\| |   / _ \\ / _` |/ _` |/ _ \\ '__|\n");
-  printf("  /  \\ |_| |  __/ |___| | | | |  / ___ \\| |_) | |_) | |__| (_) | (_| | (_| |  __/ |   \n");
-  printf(" /_/\\_\\__,_|\\___|_____|_|_| |_| /_/   \\_\\ .__/| .__/|_____\\___/ \\__,_|\\__,_|\\___|_|   \n");
-  printf("                                        |_|   |_|                                     \n");
-  printf("\033[0m");
+  printf("\r __  __          _     _            _                _                    _           \n");
+  printf("\r \\ \\/ /   _  ___| |   (_)_ __      / \\   _ __  _ __ | |    ___   __ _  __| | ___ _ __ \n");
+  printf("\r  \\  / | | |/ _ \\ |   | | '_ \\    / _ \\ | '_ \\| '_ \\| |   / _ \\ / _` |/ _` |/ _ \\ '__|\n");
+  printf("\r  /  \\ |_| |  __/ |___| | | | |  / ___ \\| |_) | |_) | |__| (_) | (_| | (_| |  __/ |   \n");
+  printf("\r /_/\\_\\__,_|\\___|_____|_|_| |_| /_/   \\_\\ .__/| .__/|_____\\___/ \\__,_|\\__,_|\\___|_|   \n");
+  printf("\r                                        |_|   |_|                                     \n");
+  printf("\r\033[0m");
 }
 /* USER CODE END 0 */
 
@@ -132,35 +132,35 @@ int main(void)
   /* USER CODE BEGIN 2 */
   // HAL_UART_Receive_IT(&huart1, ReceiveData, RX_DATA_SIZE);
 
-  printf("\033[36m========XueLin AppLoader========\n          version:%s\n\033[34mApplication base address:0x%x\033[0m\n", ver, QSPI_APP_ADDRESS);
+  printf("\r\033[36m========XueLin AppLoader========\n\r        version:%s\r\n\033[34mApplication base address:0x%x\033[0m\n", ver, QSPI_APP_ADDRESS);
   Print_LOGO();
 	
 	QSPI_W25Qxx_Reset();
 	Device_ID = QSPI_W25Qxx_ReadID();
   if (Device_ID != W25Qxx_FLASH_ID)
   {
-      printf("\033[31mFlash Error or Broken!\033[0m\n");
+      printf("\r\033[31mFlash Error or Broken!\033[0m\n");
       return 0;
   }
   else {
-    printf("\033[32mFlash OK!\033[0m\n");
+    printf("\r\033[32mFlash OK! Flash ID:0x%lX\033[0m\n", (unsigned long)Device_ID);
     QSPI_Status = QSPI_W25Qxx_MemoryMappedMode();
     if (QSPI_Status != QSPI_W25Qxx_OK)
     {
-      printf("\033[31mSet QSPI Flash to Memory Map mode has some problem!\nError Code: %ld\033[0m\n", QSPI_Status);
+      printf("\r\033[31mSet QSPI Flash to Memory Map mode has some problem!\nError Code: %ld\033[0m\n", (unsigned long)QSPI_Status);
       return 0;
     }
     else {
-      printf("\033[32mQPSI Flash set Memory Mode OK\033[0m\n");
+      printf("\r\033[32mQPSI Flash set Memory Mode OK\033[0m\n");
       if(Validate_Application() != APP_VALID)
        {
         // 应用程序无效，可进入编程模式
         // Enter_Program_Mode();
-        printf("\033[31mApp Invalid!\033[0m\n");
+        printf("\r\033[31mApp Invalid!\033[0m\n");
         return 0;
       }
       else {
-        printf("\033[32mApp Vaild! Will run it!\033[0m\n");
+        printf("\r\033[32mApp Vaild! Will run it!\033[0m\r\n");
         JumpToApplication();
       }
       
@@ -168,15 +168,8 @@ int main(void)
   }
 
   /* USER CODE END 2 */
-
-  /* Infinite loop */
-  /* USER CODE BEGIN WHILE */
-  while (1)
-  {
-    /* USER CODE END WHILE */
-
-    /* USER CODE BEGIN 3 */
-  }
+  printf("\r\033[35mUser Application Exit\033[0m\n");
+  return 0;
   /* USER CODE END 3 */
 }
 
@@ -246,7 +239,7 @@ uint8_t Validate_Application(void)
     uint32_t* app_stack_ptr = (uint32_t*)QSPI_APP_ADDRESS;
     if (!Validate_Stack_Pointer(*app_stack_ptr))
     {
-      printf("\033[31mInvalid stack pointer: 0x%lx\033[0m\n", *app_stack_ptr);
+      printf("\033[31mInvalid stack pointer: 0x%lx\033[0m\n", (unsigned long)*app_stack_ptr);
       return APP_INVALID;
     }
     
@@ -298,9 +291,30 @@ void JumpToApplication(void)
     
     // 禁用所有中断
     __disable_irq();
+
+    // 清除NVIC中断信号
+    for (uint8_t i = 0; i < 8; i++) {
+        NVIC->ICER[i] = 0xFFFFFFFF;
+        NVIC->ICPR[i] = 0xFFFFFFFF;
+    }
+
+    // 关闭SysTick
+    SysTick->CTRL = 0;
+    SysTick->LOAD = 0;
+    SysTick->VAL  = 0;
+
+    // 停止外设
+    HAL_UART_DeInit(&huart1);
+
+    // 停用Cache
+    SCB_DisableICache();
+    SCB_DisableDCache();
     
     // 设置应用程序的向量表地址
     SCB->VTOR = QSPI_APP_ADDRESS;
+
+    // 启用中断请求
+    __enable_irq();
     
     // 初始化应用程序的栈指针
     __set_MSP(*(__IO uint32_t*)QSPI_APP_ADDRESS);
@@ -355,6 +369,14 @@ void MPU_Config(void)
   MPU_InitStruct.BaseAddress = 0x24000000;
   MPU_InitStruct.Size = MPU_REGION_SIZE_512KB;
   MPU_InitStruct.SubRegionDisable = 0x0;
+
+  /** 配置 QSPI 映射区 (0x90000000, 8MB 或 16MB) 允许 Cache */
+  MPU_InitStruct.Number = MPU_REGION_NUMBER2;
+  MPU_InitStruct.BaseAddress = 0x90000000;
+  MPU_InitStruct.Size = MPU_REGION_SIZE_8MB; // 根据你的 W25Q 容量定
+  MPU_InitStruct.IsCacheable = MPU_ACCESS_CACHEABLE; // 允许 Cache
+  MPU_InitStruct.IsBufferable = MPU_ACCESS_BUFFERABLE;
+  HAL_MPU_ConfigRegion(&MPU_InitStruct);
 
   HAL_MPU_ConfigRegion(&MPU_InitStruct);
   /* Enables the MPU */
